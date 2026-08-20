@@ -59,8 +59,8 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         super().__init__()
         self.TkdndVersion = TkinterDnD._require(self)
         self.title("PDF Compressor")
-        self.geometry("640x900")
-        self.minsize(580, 760)
+        self.geometry("600x760")
+        self.minsize(560, 700)
         self.configure(fg_color=BG)
 
         try:
@@ -87,13 +87,13 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.grid_rowconfigure(0, weight=1)
 
         container = ctk.CTkFrame(self, fg_color="transparent")
-        container.grid(row=0, column=0, sticky="nsew", padx=24, pady=24)
+        container.grid(row=0, column=0, sticky="nsew", padx=18, pady=16)
         container.grid_columnconfigure(0, weight=1)
         container.grid_rowconfigure(5, weight=1)
 
         # ---------- Header ----------
         header = ctk.CTkFrame(container, fg_color="transparent")
-        header.grid(row=0, column=0, sticky="ew", pady=(0, 20))
+        header.grid(row=0, column=0, sticky="ew", pady=(0, 12))
         header.grid_columnconfigure(1, weight=1)
 
         badge = ctk.CTkFrame(header, width=44, height=44, corner_radius=12, fg_color=ACCENT)
@@ -120,24 +120,24 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.drop_area = ctk.CTkFrame(
             container, fg_color=CARD, corner_radius=14, border_width=2, border_color=BORDER
         )
-        self.drop_area.grid(row=1, column=0, sticky="ew", pady=(0, 14))
+        self.drop_area.grid(row=1, column=0, sticky="ew", pady=(0, 10))
         self.drop_area.grid_columnconfigure(0, weight=1)
 
-        self.drop_icon = ctk.CTkLabel(self.drop_area, text="📄", font=ctk.CTkFont(size=34), text_color=ACCENT)
-        self.drop_icon.pack(pady=(28, 6))
+        self.drop_icon = ctk.CTkLabel(self.drop_area, text="📄", font=ctk.CTkFont(size=26), text_color=ACCENT)
+        self.drop_icon.pack(pady=(14, 3))
 
         self.drop_title = ctk.CTkLabel(
             self.drop_area,
             text="Drag PDF files or a folder here",
-            font=ctk.CTkFont(size=15, weight="bold"),
+            font=ctk.CTkFont(size=14, weight="bold"),
             text_color=TEXT_DARK,
         )
         self.drop_title.pack()
 
         self.drop_sub = ctk.CTkLabel(
-            self.drop_area, text="or use the buttons below", font=ctk.CTkFont(size=12), text_color=TEXT_MUTED
+            self.drop_area, text="or use the buttons below", font=ctk.CTkFont(size=11), text_color=TEXT_MUTED
         )
-        self.drop_sub.pack(pady=(2, 20))
+        self.drop_sub.pack(pady=(2, 12))
 
         for widget in (self.drop_area, self.drop_icon, self.drop_title, self.drop_sub):
             widget.drop_target_register(DND_FILES)
@@ -147,7 +147,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
 
         # ---------- Selection buttons ----------
         buttons_frame = ctk.CTkFrame(container, fg_color="transparent")
-        buttons_frame.grid(row=2, column=0, sticky="ew", pady=(0, 14))
+        buttons_frame.grid(row=2, column=0, sticky="ew", pady=(0, 10))
         buttons_frame.grid_columnconfigure((0, 1, 2), weight=1)
 
         ctk.CTkButton(
@@ -191,7 +191,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         slider_frame.grid_columnconfigure(0, weight=1)
 
         slider_header = ctk.CTkFrame(slider_frame, fg_color="transparent")
-        slider_header.grid(row=0, column=0, sticky="ew", padx=16, pady=(14, 4))
+        slider_header.grid(row=0, column=0, sticky="ew", padx=16, pady=(10, 2))
         slider_header.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
@@ -203,14 +203,14 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.strength_value_label.grid(row=0, column=1, sticky="e")
 
         self.strength_slider = ctk.CTkSlider(
-            slider_frame, from_=1, to=100, number_of_steps=99, progress_color=ACCENT, button_color=ACCENT,
+            slider_frame, from_=1, to=100, number_of_steps=99, height=14, progress_color=ACCENT, button_color=ACCENT,
             button_hover_color=ACCENT_HOVER, command=self.on_strength_change,
         )
         self.strength_slider.set(DEFAULT_STRENGTH)
-        self.strength_slider.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 6))
+        self.strength_slider.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 4))
 
         scale_row = ctk.CTkFrame(slider_frame, fg_color="transparent")
-        scale_row.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 14))
+        scale_row.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 10))
         scale_row.grid_columnconfigure((0, 1), weight=1)
         ctk.CTkLabel(scale_row, text="Lighter, better quality", font=ctk.CTkFont(size=11), text_color=TEXT_MUTED).grid(
             row=0, column=0, sticky="w"
@@ -221,11 +221,11 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
 
         # ---------- Before/after preview ----------
         self.preview_card = ctk.CTkFrame(container, fg_color=CARD, corner_radius=14, border_width=1, border_color=BORDER)
-        self.preview_card.grid(row=4, column=0, sticky="ew", pady=(0, 14))
+        self.preview_card.grid(row=4, column=0, sticky="ew", pady=(0, 10))
         self.preview_card.grid_columnconfigure(0, weight=1)
 
         preview_nav = ctk.CTkFrame(self.preview_card, fg_color="transparent")
-        preview_nav.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 4))
+        preview_nav.grid(row=0, column=0, sticky="ew", padx=12, pady=(10, 2))
         preview_nav.grid_columnconfigure(1, weight=1)
 
         self.btn_prev = ctk.CTkButton(
@@ -249,24 +249,24 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.btn_next.grid(row=0, column=2)
 
         preview_images = ctk.CTkFrame(self.preview_card, fg_color="transparent")
-        preview_images.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 12))
+        preview_images.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 8))
         preview_images.grid_columnconfigure((0, 1), weight=1)
 
         before_col = ctk.CTkFrame(preview_images, fg_color="transparent")
         before_col.grid(row=0, column=0, sticky="n", padx=(0, 6))
         ctk.CTkLabel(before_col, text="Before", font=ctk.CTkFont(size=11), text_color=TEXT_MUTED).pack()
-        self.before_image_label = ctk.CTkLabel(before_col, text="", fg_color=BG, corner_radius=8, width=250, height=250)
+        self.before_image_label = ctk.CTkLabel(before_col, text="", fg_color=BG, corner_radius=8, width=130, height=130)
         self.before_image_label.pack(pady=(4, 0))
 
         after_col = ctk.CTkFrame(preview_images, fg_color="transparent")
         after_col.grid(row=0, column=1, sticky="n", padx=(6, 0))
         ctk.CTkLabel(after_col, text="After", font=ctk.CTkFont(size=11), text_color=TEXT_MUTED).pack()
-        self.after_image_label = ctk.CTkLabel(after_col, text="", fg_color=BG, corner_radius=8, width=250, height=250)
+        self.after_image_label = ctk.CTkLabel(after_col, text="", fg_color=BG, corner_radius=8, width=130, height=130)
         self.after_image_label.pack(pady=(4, 0))
 
         # ---------- Selection / log ----------
         self.selection_card = ctk.CTkFrame(container, fg_color=CARD, corner_radius=14, border_width=1, border_color=BORDER)
-        self.selection_card.grid(row=5, column=0, sticky="nsew", pady=(0, 14))
+        self.selection_card.grid(row=5, column=0, sticky="nsew", pady=(0, 10))
         self.selection_card.grid_columnconfigure(0, weight=1)
         self.selection_card.grid_rowconfigure(1, weight=1)
 
