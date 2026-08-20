@@ -59,8 +59,8 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         super().__init__()
         self.TkdndVersion = TkinterDnD._require(self)
         self.title("PDF Compressor")
-        self.geometry("600x760")
-        self.minsize(560, 700)
+        self.geometry("600x680")
+        self.minsize(480, 420)
         self.configure(fg_color=BG)
 
         try:
@@ -86,10 +86,14 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        container = ctk.CTkFrame(self, fg_color="transparent")
+        # Scrollable, not a fixed frame: window height varies a lot with
+        # screen/DPI, and a fixed layout that fits on one machine cuts off
+        # the Compress button on another. A scrollbar shows up on its own
+        # whenever the content is taller than the window, instead of
+        # guessing a "safe" height that's wrong somewhere.
+        container = ctk.CTkScrollableFrame(self, fg_color="transparent")
         container.grid(row=0, column=0, sticky="nsew", padx=18, pady=16)
         container.grid_columnconfigure(0, weight=1)
-        container.grid_rowconfigure(5, weight=1)
 
         # ---------- Header ----------
         header = ctk.CTkFrame(container, fg_color="transparent")
