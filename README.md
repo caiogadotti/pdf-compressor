@@ -21,6 +21,11 @@ Pegue o instalador pronto na página de **[Releases](../../releases/latest)** �
 
 Reduções típicas em PDFs escaneados: **80% a 99%** do tamanho original, mantendo boa legibilidade do texto e das assinaturas.
 
+<p align="center">
+  <img src="docs/screenshot-empty.png" alt="Tela inicial do PDF Compressor, área de soltar arquivo vazia" width="45%" />
+  <img src="docs/screenshot-result.png" alt="Resultado de uma compressão real: 424KB reduzido pra 127KB, 70% menor" width="45%" />
+</p>
+
 ## Como funciona por dentro
 
 O app é dividido em duas camadas: `core.py` (lógica pura, sem interface) e `app.py` (interface gráfica). Essa separação existe pra que a lógica de compressão possa ser testada ou reaproveitada em outro contexto (ex: um script de linha de comando) sem depender da GUI.
@@ -141,6 +146,11 @@ Grab the ready-to-run installer from the **[Releases](../../releases/latest)** p
 4. Compressed files show up in a `compressed/` subfolder created next to each original PDF — **original files are never touched or overwritten**.
 
 Typical reduction on scanned PDFs: **80% to 99%** of the original size, while keeping text and signatures readable.
+
+<p align="center">
+  <img src="docs/screenshot-empty.png" alt="PDF Compressor's starting screen, empty drop area" width="45%" />
+  <img src="docs/screenshot-result.png" alt="A real compression result: 424KB shrunk to 127KB, 70% smaller" width="45%" />
+</p>
 
 ## How it works internally
 
