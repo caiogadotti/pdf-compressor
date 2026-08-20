@@ -16,10 +16,12 @@ Pegue o instalador pronto na página de **[Releases](../../releases/latest)** �
 
 1. Abra o app.
 2. Arraste um ou vários PDFs, ou uma pasta inteira, pra área de soltar (ou use os botões "Select file(s)" / "Select folder").
-3. Clique em **Compress**.
-4. Os arquivos comprimidos aparecem numa subpasta `compressed/`, criada ao lado de cada PDF original — **os arquivos originais nunca são tocados ou sobrescritos**.
+3. Ajuste o **slider de força de compressão** e veja o resultado ao vivo no preview **Before/After** logo abaixo: arrasta o slider e a imagem "After" já muda na hora, sem precisar comprimir nada ainda.
+4. Se selecionou mais de um arquivo, use as setas **‹ ›** ao lado do nome pra navegar entre os PDFs e conferir o preview de cada um antes de comprimir.
+5. Clique em **Compress**.
+6. Os arquivos comprimidos aparecem numa subpasta `compressed/`, criada ao lado de cada PDF original: **os arquivos originais nunca são tocados ou sobrescritos**.
 
-Reduções típicas em PDFs escaneados: **80% a 99%** do tamanho original, mantendo boa legibilidade do texto e das assinaturas.
+Reduções típicas em PDFs escaneados: **80% a 99%** do tamanho original, mantendo boa legibilidade do texto e das assinaturas. O slider vai de "mais leve, melhor qualidade" até "arquivo menor, mais perda"; o padrão já é um meio-termo razoável, mas cada PDF tem seu próprio ponto ideal, por isso o preview existe.
 
 <p align="center">
   <img src="docs/screenshot-empty.png" alt="Tela inicial do PDF Compressor, área de soltar arquivo vazia" width="45%" />
@@ -65,10 +67,29 @@ A segunda função, `collect_pdfs(paths)`, transforma a seleção do usuário (q
 - Se for um **arquivo solto**, a pasta de destino é `compressed/` ao lado dele.
 - Se for uma **pasta**, faz uma varredura recursiva (`os.walk`) e espelha a mesma estrutura de subpastas dentro de `compressed/`, pulando a própria pasta `compressed/` pra não reprocessar em loop.
 
+### O preview ao vivo (`render_preview` e `simulate_compression`)
+
+O slider não recomprime o PDF inteiro a cada movimento, isso seria lento
+demais pra parecer "ao vivo". Em vez disso:
+
+1. `render_preview(pdf_path)` rasteriza só a primeira página do PDF como
+   imagem, via `page.get_pixmap()` do PyMuPDF, uma vez, quando você
+   seleciona o arquivo ou navega até ele.
+2. `simulate_compression(image, max_dim, quality)` aplica o mesmo
+   redimensionamento + requantização JPEG que `compress_pdf` faria, mas
+   só nessa miniatura já renderizada. Isso roda de novo a cada tick do
+   slider, rápido o bastante pra atualizar o lado "After" em tempo real.
+
+O slider em si é um único controle (1 a 100) que mapeia pra dois
+parâmetros de uma vez, `max_dim` e `quality` (`app.py:strength_to_params`),
+porque na prática ninguém quer ajustar os dois números separadamente,
+quer "comprimir mais" ou "comprimir menos".
+
 ### A interface (`app.py`)
 
 - **Drag and drop nativo do Windows**, via [`tkinterdnd2`](https://github.com/pmgagne/tkinterdnd2): a janela principal (`ctk.CTk` combinado com `TkinterDnD.DnDWrapper`) registra a área de soltar com `drop_target_register(DND_FILES)` e escuta os eventos `<<Drop>>`, `<<DragEnter>>` e `<<DragLeave>>` pra dar feedback visual (a borda fica azul quando você arrasta um arquivo por cima).
 - **Visual**, via [`customtkinter`](https://github.com/TomSchimansky/CustomTkinter), que é uma camada sobre o `tkinter` padrão do Python com widgets modernos (bordas arredondadas, temas claro/escuro).
+- **Conteúdo rolável** (`CTkScrollableFrame`): a altura útil da tela varia demais entre PC/monitor/DPI pra um layout de tamanho fixo funcionar em todo lugar. Em vez de forçar uma janela grande o bastante pra caber tudo (que corta os botões numa tela menor), o conteúdo principal fica dentro de um frame rolável, com barra de rolagem aparecendo sozinha quando precisa.
 - **Processamento em thread separada** (`threading.Thread`): comprimir vários PDFs pode levar alguns segundos, e rodar isso na thread principal do Tkinter travaria a janela. A UI é atualizada de dentro da thread via `self.log(...)` e `self.progress.set(...)`.
 - **Ícone**: usa tanto `iconbitmap` (ícone da janela/barra de título) quanto `iconphoto` (ícone da barra de tarefas), porque em apps `customtkinter`/`tkinter` no Windows o ícone da taskbar às vezes não segue o `.ico` sozinho — é preciso setar também um `PhotoImage`. Também define um `AppUserModelID` próprio via `ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(...)`, pra o Windows não agrupar/confundir o ícone do app com o ícone genérico do `python.exe`.
 
@@ -142,10 +163,12 @@ Grab the ready-to-run installer from the **[Releases](../../releases/latest)** p
 
 1. Open the app.
 2. Drag one or more PDFs, or an entire folder, onto the drop area (or use the "Select file(s)" / "Select folder" buttons).
-3. Click **Compress**.
-4. Compressed files show up in a `compressed/` subfolder created next to each original PDF — **original files are never touched or overwritten**.
+3. Adjust the **compression strength slider** and watch the **Before/After** preview update live right below it, drag the slider and the "After" image changes instantly, no compression happens yet.
+4. If you selected more than one file, use the **‹ ›** arrows next to the filename to step through the PDFs and check each one's preview before compressing.
+5. Click **Compress**.
+6. Compressed files show up in a `compressed/` subfolder created next to each original PDF: **original files are never touched or overwritten**.
 
-Typical reduction on scanned PDFs: **80% to 99%** of the original size, while keeping text and signatures readable.
+Typical reduction on scanned PDFs: **80% to 99%** of the original size, while keeping text and signatures readable. The slider goes from "lighter, better quality" to "smaller file, more loss"; the default is already a reasonable middle ground, but every PDF has its own sweet spot, that's what the preview is for.
 
 <p align="center">
   <img src="docs/screenshot-empty.png" alt="PDF Compressor's starting screen, empty drop area" width="45%" />
@@ -170,10 +193,29 @@ A heavy PDF is almost always heavy because of its **embedded images**, not its t
 
 The second function, `collect_pdfs(paths)`, turns the user's selection (a single file, several files, or a folder) into a uniform list of `(source_file, output_folder)` jobs — mirroring the folder structure into a `compressed/` subfolder when a whole directory is dropped.
 
+### The live preview (`render_preview` and `simulate_compression`)
+
+The slider doesn't recompress the whole PDF on every move, that would be
+too slow to feel live. Instead:
+
+1. `render_preview(pdf_path)` rasterizes just the PDF's first page as an
+   image, via PyMuPDF's `page.get_pixmap()`, once, when you select the
+   file or navigate to it.
+2. `simulate_compression(image, max_dim, quality)` applies the same
+   resize + JPEG requantization `compress_pdf` would, but only on that
+   already-rendered thumbnail. This runs again on every slider tick,
+   fast enough to update the "After" side in real time.
+
+The slider itself is a single control (1 to 100) that maps to two
+parameters at once, `max_dim` and `quality` (`app.py:strength_to_params`),
+because in practice nobody wants to tune those two numbers separately,
+they want "compress more" or "compress less".
+
 ### The UI (`app.py`)
 
 - **Native Windows drag and drop** via [`tkinterdnd2`](https://github.com/pmgagne/tkinterdnd2): the main window (`ctk.CTk` combined with `TkinterDnD.DnDWrapper`) registers the drop area with `drop_target_register(DND_FILES)` and listens for `<<Drop>>`, `<<DragEnter>>` and `<<DragLeave>>` events for visual feedback.
 - **Look and feel** via [`customtkinter`](https://github.com/TomSchimansky/CustomTkinter), a modern-widget layer on top of Python's standard `tkinter`.
+- **Scrollable content** (`CTkScrollableFrame`): usable screen height varies too much across PCs/monitors/DPI for a fixed-size layout to work everywhere. Instead of forcing a window tall enough to fit everything (which cuts off the buttons on a smaller screen), the main content sits inside a scrollable frame, with a scrollbar showing up on its own whenever it's needed.
 - **Background thread processing** (`threading.Thread`): compressing several PDFs can take a few seconds, and doing that on Tkinter's main thread would freeze the window. The UI is updated from the worker thread via `self.log(...)` and `self.progress.set(...)`.
 - **Icon**: uses both `iconbitmap` (title bar/window icon) and `iconphoto` (taskbar icon), because on Windows, `customtkinter`/`tkinter` apps don't always pick up the `.ico` for the taskbar automatically — a `PhotoImage` needs to be set too. It also sets a dedicated `AppUserModelID` via `ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(...)` so Windows doesn't group/confuse the app's icon with the generic `python.exe` icon.
 
