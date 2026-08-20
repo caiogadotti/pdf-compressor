@@ -41,6 +41,44 @@ def compress_pdf(src_path, out_path, max_dim=MAX_DIM, quality=JPEG_QUALITY):
     doc.close()
 
 
+def render_preview(pdf_path, page_no=0, max_dim=320):
+    """Rasterizes one PDF page as a PIL image, for the "before" side of the preview.
+
+    Renders the whole page (not just embedded images), because a PDF can be
+    heavy from other things than a photo (vector art, many small images),
+    and the preview should show what the page actually looks like, not
+    assume it's a scan.
+    """
+    doc = fitz.open(pdf_path)
+    try:
+        page = doc[page_no]
+        zoom = max_dim / max(page.rect.width, page.rect.height)
+        pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom))
+        mode = "RGB" if pix.n >= 3 else "L"
+        return Image.frombytes(mode, (pix.width, pix.height), pix.samples).convert("RGB")
+    finally:
+        doc.close()
+
+
+def simulate_compression(image, max_dim, quality):
+    """Applies the same downscale+JPEG requantization compress_pdf would, to a preview image.
+
+    Reuses the rendered "before" page instead of re-rasterizing and
+    recompressing the whole PDF on every slider tick, since that would be
+    too slow to feel live. The visual result is the same transform
+    compress_pdf applies to embedded images, just run once on a small
+    already-rendered thumbnail.
+    """
+    im = image
+    if max(im.size) > max_dim:
+        scale = max_dim / max(im.size)
+        im = im.resize((max(1, int(im.width * scale)), max(1, int(im.height * scale))), Image.LANCZOS)
+    buf = io.BytesIO()
+    im.save(buf, format="JPEG", quality=quality, optimize=True)
+    buf.seek(0)
+    return Image.open(buf).convert("RGB")
+
+
 def collect_pdfs(paths):
     """Takes a list of paths (files and/or folders) and returns [(src, output_dir), ...]."""
     jobs = []

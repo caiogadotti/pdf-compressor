@@ -8,7 +8,7 @@ from tkinter import PhotoImage, filedialog
 import customtkinter as ctk
 from tkinterdnd2 import DND_FILES, TkinterDnD
 
-from core import collect_pdfs, compress_pdf
+from core import collect_pdfs, compress_pdf, render_preview, simulate_compression
 
 ACCENT = "#2563EB"
 ACCENT_HOVER = "#1D4ED8"
@@ -18,8 +18,30 @@ BG = "#F5F6F8"
 CARD = "#FFFFFF"
 BORDER = "#E3E7EA"
 
+# min/max of what the slider actually drives: JPEG quality and the max side
+# length embedded images get downscaled to. One slider controls both at
+# once, because in practice nobody wants to tune two numbers separately,
+# they want "compress more" or "compress less".
+QUALITY_RANGE = (25, 90)
+MAX_DIM_RANGE = (700, 2000)
+DEFAULT_STRENGTH = 50
+
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
+
+
+def strength_to_params(strength):
+    """Maps the slider's 1-100 "how much to compress" into (max_dim, quality).
+
+    Higher strength = smaller max_dim and lower JPEG quality = smaller file,
+    more visible loss. Both ends of the range were picked by eye: below
+    quality 25 text starts smearing, above max_dim 2000 there's rarely any
+    size gain worth the extra pixels for a document scan.
+    """
+    t = (strength - 1) / 99
+    quality = round(QUALITY_RANGE[1] - t * (QUALITY_RANGE[1] - QUALITY_RANGE[0]))
+    max_dim = round(MAX_DIM_RANGE[1] - t * (MAX_DIM_RANGE[1] - MAX_DIM_RANGE[0]))
+    return max_dim, quality
 
 
 def resource_path(name):
@@ -37,8 +59,8 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         super().__init__()
         self.TkdndVersion = TkinterDnD._require(self)
         self.title("PDF Compressor")
-        self.geometry("620x640")
-        self.minsize(560, 560)
+        self.geometry("640x900")
+        self.minsize(580, 760)
         self.configure(fg_color=BG)
 
         try:
@@ -55,6 +77,11 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
 
         self.selected = []
         self.last_output_dir = None
+        self.preview_files = []
+        self.preview_index = 0
+        self.preview_before_image = None
+        self.preview_before_ctk = None
+        self.preview_after_ctk = None
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -62,7 +89,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         container = ctk.CTkFrame(self, fg_color="transparent")
         container.grid(row=0, column=0, sticky="nsew", padx=24, pady=24)
         container.grid_columnconfigure(0, weight=1)
-        container.grid_rowconfigure(3, weight=1)
+        container.grid_rowconfigure(5, weight=1)
 
         # ---------- Header ----------
         header = ctk.CTkFrame(container, fg_color="transparent")
@@ -158,9 +185,88 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
             command=self.clear,
         ).grid(row=0, column=2, padx=(6, 0), sticky="ew")
 
+        # ---------- Compression strength slider ----------
+        slider_frame = ctk.CTkFrame(container, fg_color=CARD, corner_radius=14, border_width=1, border_color=BORDER)
+        slider_frame.grid(row=3, column=0, sticky="ew", pady=(0, 14))
+        slider_frame.grid_columnconfigure(0, weight=1)
+
+        slider_header = ctk.CTkFrame(slider_frame, fg_color="transparent")
+        slider_header.grid(row=0, column=0, sticky="ew", padx=16, pady=(14, 4))
+        slider_header.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            slider_header, text="Compression strength", font=ctk.CTkFont(size=13, weight="bold"), text_color=TEXT_DARK
+        ).grid(row=0, column=0, sticky="w")
+        self.strength_value_label = ctk.CTkLabel(
+            slider_header, text="", font=ctk.CTkFont(size=12), text_color=TEXT_MUTED
+        )
+        self.strength_value_label.grid(row=0, column=1, sticky="e")
+
+        self.strength_slider = ctk.CTkSlider(
+            slider_frame, from_=1, to=100, number_of_steps=99, progress_color=ACCENT, button_color=ACCENT,
+            button_hover_color=ACCENT_HOVER, command=self.on_strength_change,
+        )
+        self.strength_slider.set(DEFAULT_STRENGTH)
+        self.strength_slider.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 6))
+
+        scale_row = ctk.CTkFrame(slider_frame, fg_color="transparent")
+        scale_row.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 14))
+        scale_row.grid_columnconfigure((0, 1), weight=1)
+        ctk.CTkLabel(scale_row, text="Lighter, better quality", font=ctk.CTkFont(size=11), text_color=TEXT_MUTED).grid(
+            row=0, column=0, sticky="w"
+        )
+        ctk.CTkLabel(scale_row, text="Smaller file, more loss", font=ctk.CTkFont(size=11), text_color=TEXT_MUTED).grid(
+            row=0, column=1, sticky="e"
+        )
+
+        # ---------- Before/after preview ----------
+        self.preview_card = ctk.CTkFrame(container, fg_color=CARD, corner_radius=14, border_width=1, border_color=BORDER)
+        self.preview_card.grid(row=4, column=0, sticky="ew", pady=(0, 14))
+        self.preview_card.grid_columnconfigure(0, weight=1)
+
+        preview_nav = ctk.CTkFrame(self.preview_card, fg_color="transparent")
+        preview_nav.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 4))
+        preview_nav.grid_columnconfigure(1, weight=1)
+
+        self.btn_prev = ctk.CTkButton(
+            preview_nav, text="‹", width=30, height=28, fg_color="transparent", hover_color="#EDEFF1",
+            text_color=TEXT_DARK, border_width=1, border_color=BORDER, command=lambda: self.step_preview(-1),
+            state="disabled",
+        )
+        self.btn_prev.grid(row=0, column=0)
+
+        self.preview_filename_label = ctk.CTkLabel(
+            preview_nav, text="Select files to see a preview", font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=TEXT_DARK,
+        )
+        self.preview_filename_label.grid(row=0, column=1, sticky="ew")
+
+        self.btn_next = ctk.CTkButton(
+            preview_nav, text="›", width=30, height=28, fg_color="transparent", hover_color="#EDEFF1",
+            text_color=TEXT_DARK, border_width=1, border_color=BORDER, command=lambda: self.step_preview(1),
+            state="disabled",
+        )
+        self.btn_next.grid(row=0, column=2)
+
+        preview_images = ctk.CTkFrame(self.preview_card, fg_color="transparent")
+        preview_images.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 12))
+        preview_images.grid_columnconfigure((0, 1), weight=1)
+
+        before_col = ctk.CTkFrame(preview_images, fg_color="transparent")
+        before_col.grid(row=0, column=0, sticky="n", padx=(0, 6))
+        ctk.CTkLabel(before_col, text="Before", font=ctk.CTkFont(size=11), text_color=TEXT_MUTED).pack()
+        self.before_image_label = ctk.CTkLabel(before_col, text="", fg_color=BG, corner_radius=8, width=250, height=250)
+        self.before_image_label.pack(pady=(4, 0))
+
+        after_col = ctk.CTkFrame(preview_images, fg_color="transparent")
+        after_col.grid(row=0, column=1, sticky="n", padx=(6, 0))
+        ctk.CTkLabel(after_col, text="After", font=ctk.CTkFont(size=11), text_color=TEXT_MUTED).pack()
+        self.after_image_label = ctk.CTkLabel(after_col, text="", fg_color=BG, corner_radius=8, width=250, height=250)
+        self.after_image_label.pack(pady=(4, 0))
+
         # ---------- Selection / log ----------
         self.selection_card = ctk.CTkFrame(container, fg_color=CARD, corner_radius=14, border_width=1, border_color=BORDER)
-        self.selection_card.grid(row=3, column=0, sticky="nsew", pady=(0, 14))
+        self.selection_card.grid(row=5, column=0, sticky="nsew", pady=(0, 14))
         self.selection_card.grid_columnconfigure(0, weight=1)
         self.selection_card.grid_rowconfigure(1, weight=1)
 
@@ -186,7 +292,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
 
         # ---------- Footer ----------
         footer = ctk.CTkFrame(container, fg_color="transparent")
-        footer.grid(row=4, column=0, sticky="ew")
+        footer.grid(row=6, column=0, sticky="ew")
         footer.grid_columnconfigure(0, weight=1)
 
         self.progress = ctk.CTkProgressBar(footer, progress_color=ACCENT, fg_color=BORDER, height=8)
@@ -229,6 +335,68 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         )
         self.btn_compress.grid(row=0, column=1)
 
+        self.update_strength_label()
+
+    # ---------- Compression strength ----------
+    def update_strength_label(self):
+        max_dim, quality = strength_to_params(round(self.strength_slider.get()))
+        self.strength_value_label.configure(text=f"quality {quality} · up to {max_dim}px")
+
+    def on_strength_change(self, _value):
+        self.update_strength_label()
+        self.update_after_preview()
+
+    # ---------- Preview ----------
+    def refresh_preview(self):
+        """Rebuilds the list of previewable PDFs from the current selection and shows the first one."""
+        self.preview_files = [src for src, _dest in collect_pdfs(self.selected)]
+        self.preview_index = 0
+        self.show_preview_at(0)
+
+    def step_preview(self, delta):
+        if not self.preview_files:
+            return
+        self.preview_index = (self.preview_index + delta) % len(self.preview_files)
+        self.show_preview_at(self.preview_index)
+
+    def show_preview_at(self, index):
+        has_files = bool(self.preview_files)
+        many = len(self.preview_files) > 1
+        self.btn_prev.configure(state="normal" if many else "disabled")
+        self.btn_next.configure(state="normal" if many else "disabled")
+
+        if not has_files:
+            self.preview_filename_label.configure(text="Select files to see a preview")
+            self.before_image_label.configure(image=None, text="")
+            self.after_image_label.configure(image=None, text="")
+            self.preview_before_image = None
+            return
+
+        path = self.preview_files[index]
+        counter = f"  ({index + 1}/{len(self.preview_files)})" if many else ""
+        self.preview_filename_label.configure(text=f"{os.path.basename(path)}{counter}")
+
+        try:
+            self.preview_before_image = render_preview(path)
+        except Exception:
+            self.preview_before_image = None
+            self.preview_filename_label.configure(text=f"{os.path.basename(path)} (couldn't preview this file)")
+            self.before_image_label.configure(image=None, text="")
+            self.after_image_label.configure(image=None, text="")
+            return
+
+        self.preview_before_ctk = ctk.CTkImage(light_image=self.preview_before_image, size=self.preview_before_image.size)
+        self.before_image_label.configure(image=self.preview_before_ctk, text="")
+        self.update_after_preview()
+
+    def update_after_preview(self):
+        if self.preview_before_image is None:
+            return
+        max_dim, quality = strength_to_params(round(self.strength_slider.get()))
+        after_img = simulate_compression(self.preview_before_image, max_dim=max_dim, quality=quality)
+        self.preview_after_ctk = ctk.CTkImage(light_image=after_img, size=after_img.size)
+        self.after_image_label.configure(image=self.preview_after_ctk, text="")
+
     # ---------- Drag & drop ----------
     def on_drag_enter(self, _event):
         self.drop_area.configure(border_color=ACCENT, fg_color="#EAF1FE")
@@ -242,6 +410,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         if paths:
             self.selected = paths
             self.update_selection_label()
+            self.refresh_preview()
 
     # ---------- Manual selection ----------
     def select_files(self):
@@ -249,17 +418,22 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         if files:
             self.selected = list(files)
             self.update_selection_label()
+            self.refresh_preview()
 
     def select_folder(self):
         folder = filedialog.askdirectory(title="Select the folder with PDFs")
         if folder:
             self.selected = [folder]
             self.update_selection_label()
+            self.refresh_preview()
 
     def clear(self):
         self.selected = []
         self.last_output_dir = None
+        self.preview_files = []
+        self.preview_index = 0
         self.update_selection_label()
+        self.show_preview_at(0)
         self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
         self.log_box.configure(state="disabled")
@@ -301,6 +475,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         threading.Thread(target=self.compress, daemon=True).start()
 
     def compress(self):
+        max_dim, quality = strength_to_params(round(self.strength_slider.get()))
         jobs = collect_pdfs(self.selected)
         if not jobs:
             self.log("No PDF found in the selection.")
@@ -321,7 +496,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
             out_path = os.path.join(dest_dir, os.path.basename(src))
             try:
                 before = os.path.getsize(src)
-                compress_pdf(src, out_path)
+                compress_pdf(src, out_path, max_dim=max_dim, quality=quality)
                 after = os.path.getsize(out_path)
                 total_before += before
                 total_after += after
