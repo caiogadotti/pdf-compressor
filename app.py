@@ -6,9 +6,17 @@ import threading
 from tkinter import PhotoImage, filedialog
 
 import customtkinter as ctk
+from PIL import Image as PILImage
 from tkinterdnd2 import DND_FILES, TkinterDnD
 
 from core import collect_pdfs, compress_pdf, render_preview, simulate_compression
+
+# CTkLabel.configure(image=None) is a no-op in customtkinter — its internal
+# _update_image() only handles the "set an image" case, never "clear it", so
+# the previous photo stays stuck on screen. A transparent 1x1 image is the
+# workaround: it's a real image the label happily swaps in, and it renders
+# as nothing.
+_EMPTY_IMAGE = ctk.CTkImage(light_image=PILImage.new("RGBA", (1, 1), (0, 0, 0, 0)), size=(1, 1))
 
 ACCENT = "#2563EB"
 ACCENT_HOVER = "#1D4ED8"
@@ -371,8 +379,8 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
 
         if not has_files:
             self.preview_filename_label.configure(text="Select files to see a preview")
-            self.before_image_label.configure(image=None, text="")
-            self.after_image_label.configure(image=None, text="")
+            self.before_image_label.configure(image=_EMPTY_IMAGE, text="")
+            self.after_image_label.configure(image=_EMPTY_IMAGE, text="")
             self.preview_before_image = None
             return
 
@@ -385,8 +393,8 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         except Exception:
             self.preview_before_image = None
             self.preview_filename_label.configure(text=f"{os.path.basename(path)} (couldn't preview this file)")
-            self.before_image_label.configure(image=None, text="")
-            self.after_image_label.configure(image=None, text="")
+            self.before_image_label.configure(image=_EMPTY_IMAGE, text="")
+            self.after_image_label.configure(image=_EMPTY_IMAGE, text="")
             return
 
         self.preview_before_ctk = ctk.CTkImage(light_image=self.preview_before_image, size=self.preview_before_image.size)
