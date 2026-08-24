@@ -24,8 +24,8 @@ Pegue o instalador pronto na página de **[Releases](../../releases/latest)** �
 Reduções típicas em PDFs escaneados: **80% a 99%** do tamanho original, mantendo boa legibilidade do texto e das assinaturas. O slider vai de "mais leve, melhor qualidade" até "arquivo menor, mais perda"; o padrão já é um meio-termo razoável, mas cada PDF tem seu próprio ponto ideal, por isso o preview existe.
 
 <p align="center">
-  <img src="docs/screenshot-empty.png" alt="Tela inicial do PDF Compressor, área de soltar arquivo vazia" width="45%" />
-  <img src="docs/screenshot-result.png" alt="Resultado de uma compressão real: 424KB reduzido pra 127KB, 70% menor" width="45%" />
+  <img src="docs/screenshot-empty.png" alt="Tela inicial do PDF Compressor: área de soltar arquivo, slider de força e preview vazios" width="45%" />
+  <img src="docs/screenshot-preview.png" alt="Preview Before/After ao vivo comparando a página original com o resultado da compressão simulada" width="45%" />
 </p>
 
 ## Como funciona por dentro
@@ -171,8 +171,8 @@ Grab the ready-to-run installer from the **[Releases](../../releases/latest)** p
 Typical reduction on scanned PDFs: **80% to 99%** of the original size, while keeping text and signatures readable. The slider goes from "lighter, better quality" to "smaller file, more loss"; the default is already a reasonable middle ground, but every PDF has its own sweet spot, that's what the preview is for.
 
 <p align="center">
-  <img src="docs/screenshot-empty.png" alt="PDF Compressor's starting screen, empty drop area" width="45%" />
-  <img src="docs/screenshot-result.png" alt="A real compression result: 424KB shrunk to 127KB, 70% smaller" width="45%" />
+  <img src="docs/screenshot-empty.png" alt="PDF Compressor's starting screen: drop area, strength slider and preview, all empty" width="45%" />
+  <img src="docs/screenshot-preview.png" alt="Live Before/After preview comparing the original page against the simulated compression result" width="45%" />
 </p>
 
 ## How it works internally
