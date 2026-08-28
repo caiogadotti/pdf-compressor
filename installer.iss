@@ -2,7 +2,7 @@
 ; Build with: ISCC.exe installer.iss  ->  outputs Output\PDFCompressor-Setup.exe
 
 #define AppName "PDF Compressor"
-#define AppVersion "1.0.0"
+#define AppVersion "1.1.0"
 #define AppPublisher "Caio Gadotti"
 #define AppExeName "PDFCompressor.exe"
 #define AppURL "https://github.com/caiogadotti/pdf-compressor"
